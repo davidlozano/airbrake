@@ -5,14 +5,21 @@ namespace :airbrake do
   DESC
   task :deploy do
     on roles(:all) do |host|
-      rails_env = fetch(:rails_env, "production")
+      env_var, env = if fetch(:rack_env)
+        'RACK_ENV', fetch(:rack_env)
+      elsif fetch(:rails_env)
+        'RAILS_ENV', fetch(:rails_env)
+      end
+      env_var ||= 'RAILS_ENV'
+      env ||= 'production'
+
       airbrake_env = fetch(:airbrake_env, fetch(:rails_env, "production"))
       local_user = ENV['USER'] || ENV['USERNAME']
       executable = RUBY_PLATFORM.downcase.include?('mswin') ? fetch(:rake, 'rake.bat') : fetch(:rake, 'bundle exec rake ')
       current_revision = capture("cd #{repo_path} && git rev-parse HEAD")
       repository = ENV['REPO'] || ENV['REPONAME']
 
-      notify_command = "RAILS_ENV=#{rails_env} airbrake:deploy TO=#{airbrake_env} REVISION=#{current_revision} REPO=#{repo_url} USER=#{Airbrake::Capistrano::shellescape(local_user)}"
+      notify_command = "#{env_var}=#{env} airbrake:deploy TO=#{airbrake_env} REVISION=#{current_revision} REPO=#{repo_url} USER=#{Airbrake::Capistrano::shellescape(local_user)}"
       notify_command << " API_KEY=#{ENV['API_KEY']}" if ENV['API_KEY']
       info "Notifying Airbrake of Deploy (#{notify_command})"
       result = ""
